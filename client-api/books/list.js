@@ -1,38 +1,46 @@
 const {uri} = require("../../private/mongoCreds");
-const MongoClient = require('mongodb').MongoClient;
 const Promise = require("bluebird");
 const userLib = require("../../lib/userLib");
-const client = new MongoClient(uri, { useNewUrlParser: true });
+const mongoose = require('mongoose');
+const Books = require('../../db/books');
+const utils = require("../../lib/utils");
 
-exports.handler = (event) => {
-  console.log('event', event);
-  
-  //userId or security token should be passed in the header as a secure parameter. For ease of implementation, have taken it as part of body
-//   const userId = event.queryStringParameters && event.queryStringParameters.userId;
-  
-  //find User and validate if the user can create a new book
-  
-  return Promise.try(()=>{
 
-    // return userLib.findUserByUserId(userId)
-    //   .then(user=>{
-    //   if(!user){
-    //     throw new error("Invalid userId!");
-    //   }
-    //   userLib.validateUserToReadBook(user);
-    //   return user;
-    // })
-    // .then(user=>{
-      return client.connect(err => {
-        const collection = client.db("books").collection("books");
-        return collection.find().toArray().then((allBooks)=>{
-            console.log('allBooks', allBooks);
-            client.close()
-        });
-      });
+
+module.exports.handler = (event, context, cb) => {
+    console.log('event', event);
+    //userId or security token should be passed in the header as a secure parameter. For ease of implementation, have taken it as part of body
+    // const userId = event.queryStringParameters && event.queryStringParameters.userId;
+
+    //find User and validate if the user can create a new book
+    const userId="123";
+    return Promise.try(() => {
+        return userLib.findUserByUserId(userId)
+            .then(user => {
+                if (!user) {
+                    throw new Error("Invalid userId!");
+                }
+                userLib.validateUserToFetchBook(user);
+                return user;
+            })
+            .then(user => {
+                // return connect.then(db => {
+                // const findBooks = Books();
+                return Books.find({})//.then()
+                // });
+                // })
+            })
     })
-  // })
-  .catch(err=>console.log(err));
+        .then(async (books)=> {
+            books = books.map(book=>book._doc);
+            const data = {
+                "books" : books
+            };
+            await mongoose.connection.close();
+            await mongoose.disconnect();
+            return utils.callbackSuccess(cb, data)
+        })
+        .catch(err => console.log(err));
 };
 
 console.log(this.handler());
